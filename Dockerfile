@@ -1,22 +1,27 @@
+
 FROM alpine:latest
 
-# Instalasi tools yang dibutuhkan
+# 1. Instalasi tools dan set folder kerja
 RUN apk add --no-cache curl unzip
-
-# Set working directory
 WORKDIR /app
 
-# Download V2Ray duluan agar tidak menindih config buatan kita
+# 2. Download dan Ekstrak V2Ray ke folder saat ini (.)
 RUN curl -L -o v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip \
     && unzip v2ray.zip \
     && chmod +x v2ray \
     && rm v2ray.zip
 
-# Baru kemudian masukkan config.json buatan kita sendiri
-COPY config.json /app/config.json
+# 3. Buat file config.json secara otomatis di dalam Docker agar tidak perlu COPY lagi
+RUN echo '{\
+  "inbounds": [{\
+    "port": 8080,\
+    "protocol": "vmess",\
+    "settings": { "clients": [{ "id": "b8313620-1511-4471-a244-6a83669680df" }] },\
+    "streamSettings": { "network": "ws", "wsSettings": { "path": "/nganjuk-speed" } }\
+  }],\
+  "outbounds": [{ "protocol": "freedom" }]\
+}' > /app/config.json
 
-# Port yang digunakan Koyeb
+# 4. Jalankan aplikasi menggunakan port 8080
 EXPOSE 8080
-
-# Jalankan V2Ray
-CMD ["./v2ray", "run", "-c", "config.json"]
+CMD ["/app/v2ray", "run", "-c", "/app/config.json"]
