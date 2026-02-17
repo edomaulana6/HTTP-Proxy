@@ -1,4 +1,3 @@
-
 FROM alpine:latest
 
 # 1. Instalasi tools dan set folder kerja
