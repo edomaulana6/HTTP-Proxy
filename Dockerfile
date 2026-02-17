@@ -1,26 +1,20 @@
-FROM alpine:latest
+FROM ubuntu:latest
 
-# 1. Instalasi tools dan set folder kerja
-RUN apk add --no-cache curl unzip
-WORKDIR /app
+# 1. Install dependencies
+RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/* [cite: 2025-12-27]
 
-# 2. Download dan Ekstrak V2Ray ke folder saat ini (.)
+# 2. Setup environment
+WORKDIR /app [cite: 2025-12-27]
+
+# 3. Download & Install V2Ray
 RUN curl -L -o v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip \
     && unzip v2ray.zip \
     && chmod +x v2ray \
-    && rm v2ray.zip
+    && rm v2ray.zip [cite: 2025-12-27]
 
-# 3. Buat file config.json secara otomatis di dalam Docker agar tidak perlu COPY lagi
-RUN echo '{\
-  "inbounds": [{\
-    "port": 8080,\
-    "protocol": "vmess",\
-    "settings": { "clients": [{ "id": "b8313620-1511-4471-a244-6a83669680df" }] },\
-    "streamSettings": { "network": "ws", "wsSettings": { "path": "/nganjuk-speed" } }\
-  }],\
-  "outbounds": [{ "protocol": "freedom" }]\
-}' > /app/config.json
+# 4. Generate Config Otomatis
+RUN echo '{"inbounds":[{"port":8080,"protocol":"vmess","settings":{"clients":[{"id":"b8313620-1511-4471-a244-6a83669680df"}]},"streamSettings":{"network":"ws","wsSettings":{"path":"/nganjuk-speed"}}}],"outbounds":[{"protocol":"freedom"}]}' > /app/config.json [cite: 2025-12-27]
 
-# 4. Jalankan aplikasi menggunakan port 8080
-EXPOSE 8080
-CMD ["/app/v2ray", "run", "-c", "/app/config.json"]
+# 5. Execution
+EXPOSE 8080 [cite: 2025-12-27]
+CMD ["/app/v2ray", "run", "-c", "/app/config.json"] [cite: 2025-12-27]
