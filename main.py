@@ -3,41 +3,41 @@ import os
 import time
 import threading
 
-# Ambil token dari Environment Variable Koyeb
-token = os.getenv("TOKEN")
-bot = telebot.TeleBot(token)
+# Mengambil Token dari Environment Variable Koyeb
+TOKEN = os.getenv("TOKEN")
+bot = telebot.TeleBot(TOKEN)
 
-# Fungsi pembersih memory (file video) setiap 1 menit
-def cleaner():
+# Fungsi membersihkan file video setiap 1 menit
+def auto_clean():
     while True:
         time.sleep(60)
-        for f in os.listdir("."):
-            if f.endswith((".mp4", ".webm", ".mkv")):
+        for file in os.listdir("."):
+            if file.endswith((".mp4", ".webm", ".mkv")):
                 try:
-                    os.remove(f)
-                    print(f"Auto-clean: {f} dihapus")
-                except:
-                    pass
+                    os.remove(file)
+                    print(f"Pembersihan otomatis: {file} dihapus")
+                except Exception as e:
+                    print(f"Gagal menghapus {file}: {e}")
 
-# Jalankan cleaner di background
-threading.Thread(target=cleaner, daemon=True).start()
+# Jalankan fungsi pembersih di latar belakang
+threading.Thread(target=auto_clean, daemon=True).start()
 
 @bot.message_handler(func=lambda m: True)
-def dl(m):
+def handle_download(m):
     url = m.text
-    bot.reply_to(m, "Sabar, lagi download...")
+    bot.reply_to(m, "Sabar, sedang mengunduh video...")
     try:
-        # Download kualitas terbaik
-        os.system(f'yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --no-cookies -o vid.mp4 {url}')
+        # Perintah download yt-dlp (MP4 kualitas terbaik tanpa cookies)
+        os.system(f'yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --no-cookies -o video_hasil.mp4 "{url}"')
         
-        if os.path.exists("vid.mp4"):
-            with open("vid.mp4", "rb") as v:
-                bot.send_video(m.chat.id, v)
-            os.remove("vid.mp4")
+        if os.path.exists("video_hasil.mp4"):
+            with open("video_hasil.mp4", "rb") as video:
+                bot.send_video(m.chat.id, video)
+            os.remove("video_hasil.mp4")
         else:
-            bot.reply_to(m, "Gagal mengunduh video. Pastikan link benar.")
+            bot.reply_to(m, "Gagal mengunduh. Link tidak didukung atau YouTube sedang error.")
     except Exception as e:
-        bot.reply_to(m, f"Error: {e}")
+        bot.reply_to(m, f"Terjadi kesalahan: {e}")
 
-print("Bot Jalan & Auto-clean Aktif (1 Menit)...")
+print("Bot Telegram Aktif & Pembersih 1 Menit Berjalan...")
 bot.infinity_polling()
