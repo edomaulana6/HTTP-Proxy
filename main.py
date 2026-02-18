@@ -3,48 +3,42 @@ import os
 import time
 import threading
 
-# GANTI bagian di bawah ini dengan token asli Anda yang tadi
-TOKEN = "MASUKKAN_TOKEN_ANDA_DI_SINI" 
-bot = telebot.TeleBot(TOKEN)
+# Masukkan token Anda di dalam tanda kutip di bawah ini secara teliti
+TOKEN = "MASUKKAN_TOKEN_DISINI"
 
-# RESET MEMORY: Hapus file video setiap 1 menit secara otomatis
+try:
+    bot = telebot.TeleBot(TOKEN)
+    print("LOG: Sistem otentikasi berhasil.")
+except Exception as e:
+    print(f"LOG ERROR: Masalah pada kredensial: {e}")
+
+# RESET MEMORY: Fitur penghapusan otomatis setiap 1 menit (60 detik)
 def auto_clean():
     while True:
         time.sleep(60)
         for f in os.listdir("."):
-            # Target file video agar penyimpanan tidak penuh
             if f.endswith((".mp4", ".webm", ".mkv")):
                 try:
                     os.remove(f)
-                    print(f"Auto-clean: {f} berhasil dihapus dari memori.")
                 except:
                     pass
 
-# Jalankan cleaner di latar belakang
+# Jalankan pembersihan memori di latar belakang
 threading.Thread(target=auto_clean, daemon=True).start()
 
-@bot.message_handler(func=lambda m: True)
+@bot.message_handler(func=lambda m: m.text.startswith("http"))
 def handle_download(m):
-    if not m.text.startswith("http"):
-        return
-        
-    bot.reply_to(m, "Sabar ya, video sedang diproses...")
-    
-    # Nama file unik berdasarkan ID chat
-    file_output = f"vid_{m.chat.id}.mp4"
-    
+    bot.reply_to(m, "Sabar, video sedang diproses...")
     try:
-        # Perintah download yang paling stabil
-        os.system(f'yt-dlp -f "best" --no-cookies -o "{file_output}" "{m.text}"')
-        
-        if os.path.exists(file_output):
-            with open(file_output, "rb") as video:
-                bot.send_video(m.chat.id, video)
-            os.remove(file_output) # Hapus setelah dikirim
-        else:
-            bot.reply_to(m, "Gagal ambil video. Link salah atau server lagi sibuk.")
+        out = f"v_{m.chat.id}.mp4"
+        # Download video dengan yt-dlp
+        os.system(f'yt-dlp -f "best" --no-cookies -o "{out}" "{m.text}"')
+        if os.path.exists(out):
+            with open(out, "rb") as v:
+                bot.send_video(m.chat.id, v)
+            os.remove(out) # Langsung hapus setelah terkirim
     except Exception as e:
-        bot.reply_to(m, f"Error sistem: {e}")
+        bot.reply_to(m, f"Terjadi kendala teknis: {e}")
 
 print("BOT AKTIF SEKARANG!")
 bot.infinity_polling()
