@@ -1,16 +1,15 @@
 FROM python:3.10-slim
 
-# Install ffmpeg untuk penggabungan video & audio
+# Install ffmpeg agar video dan audio bisa digabung
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy requirements dan install
+# Ambil file dari GitHub ke dalam server Koyeb
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy sisa file (main.py)
-COPY . .
+COPY main.py .
 
-# Jalankan perintah langsung ke python
+# Pastikan eksekusi langsung lewat python
 CMD ["python", "main.py"]
