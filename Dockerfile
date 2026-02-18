@@ -1,13 +1,16 @@
 FROM python:3.10-slim
 
-# Install tools yang dibutuhkan
-RUN apt-get update && apt-get install -y ffmpeg && \
-    pip install --no-cache-dir yt-dlp pyTelegramBotAPI
+# Install ffmpeg untuk penggabungan video & audio
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Salin semua file dari GitHub ke dalam container
+# Copy requirements dan install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy sisa file (main.py)
 COPY . .
 
-# Jalankan python secara langsung ke file main.py
+# Jalankan perintah langsung ke python
 CMD ["python", "main.py"]
