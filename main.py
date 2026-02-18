@@ -2,43 +2,61 @@ import telebot
 import os
 import time
 import threading
+import subprocess
 
-# Masukkan token Anda di dalam tanda kutip di bawah ini secara teliti
-TOKEN = "MASUKKAN_TOKEN_DISINI"
+# Mengambil Token dari Environment Variable (Lebih aman untuk Koyeb)
+TOKEN = os.getenv("TOKEN")
 
-try:
-    bot = telebot.TeleBot(TOKEN)
-    print("LOG: Sistem otentikasi berhasil.")
-except Exception as e:
-    print(f"LOG ERROR: Masalah pada kredensial: {e}")
+if not TOKEN or ":" not in TOKEN:
+    print("ERROR: Variabel TOKEN tidak ditemukan atau format salah!")
+    exit(1)
 
-# RESET MEMORY: Fitur penghapusan otomatis setiap 1 menit (60 detik)
+bot = telebot.TeleBot(TOKEN)
+print("LOG: Sistem otentikasi berhasil.")
+
+# RESET MEMORY: Menghapus file sisa setiap 1 menit
 def auto_clean():
     while True:
         time.sleep(60)
-        for f in os.listdir("."):
-            if f.endswith((".mp4", ".webm", ".mkv")):
+        current_dir = "."
+        for f in os.listdir(current_dir):
+            # Hanya hapus file video hasil download
+            if f.startswith("v_") and f.endswith((".mp4", ".webm", ".mkv")):
                 try:
                     os.remove(f)
-                except:
-                    pass
+                    print(f"LOG: Auto-clean menghapus {f}")
+                except Exception as e:
+                    print(f"LOG ERROR: Gagal hapus {f}: {e}")
 
-# Jalankan pembersihan memori di latar belakang
 threading.Thread(target=auto_clean, daemon=True).start()
 
-@bot.message_handler(func=lambda m: m.text.startswith("http"))
+@bot.message_handler(func=lambda m: m.text and m.text.startswith("http"))
 def handle_download(m):
-    bot.reply_to(m, "Sabar, video sedang diproses...")
+    sent_msg = bot.reply_to(m, "⏳ Sabar, video sedang diproses...")
+    out = f"v_{m.chat.id}_{int(time.time())}.mp4"
+    
     try:
-        out = f"v_{m.chat.id}.mp4"
-        # Download video dengan yt-dlp
-        os.system(f'yt-dlp -f "best" --no-cookies -o "{out}" "{m.text}"')
+        # Menggunakan subprocess agar lebih terkontrol daripada os.system
+        command = [
+            'yt-dlp',
+            '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            '--no-playlist',
+            '--merge-output-format', 'mp4',
+            '-o', out,
+            m.text
+        ]
+        
+        result = subprocess.run(command, capture_output=True, text=True)
+        
         if os.path.exists(out):
             with open(out, "rb") as v:
-                bot.send_video(m.chat.id, v)
-            os.remove(out) # Langsung hapus setelah terkirim
+                bot.send_video(m.chat.id, v, caption="✅ Berhasil diunduh!")
+            os.remove(out) # Hapus instan setelah sukses
+        else:
+            bot.edit_message_text(f"❌ Gagal mengunduh. Video tidak ditemukan.\nError: {result.stderr[:100]}", m.chat.id, sent_msg.message_id)
+            
     except Exception as e:
-        bot.reply_to(m, f"Terjadi kendala teknis: {e}")
+        bot.edit_message_text(f"⚠️ Terjadi kendala teknis: {str(e)}", m.chat.id, sent_msg.message_id)
 
 print("BOT AKTIF SEKARANG!")
 bot.infinity_polling()
