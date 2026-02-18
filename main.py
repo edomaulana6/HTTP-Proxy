@@ -1,48 +1,40 @@
-import telebot
-import os
-import time
-import threading
+import telebot, os, threading, subprocess, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# --- 1. KOYEB HEALTH CHECK (WAJIB) ---
-def run_health_server():
+# --- 1. KOYEB HEALTH CHECK ---
+def run_health():
     class H(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200); self.end_headers(); self.wfile.write(b"ALIVE")
-    port = int(os.environ.get("PORT", 8000))
-    server = HTTPServer(("0.0.0.0", port), H)
-    server.serve_forever()
+        def do_GET(self): self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
+    HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 8000))), H).serve_forever()
 
-threading.Thread(target=run_health_server, daemon=True).start()
+threading.Thread(target=run_health, daemon=True).start()
 
-# --- 2. INISIALISASI BOT (DENGAN LOG AGAR TERLIHAT ERRORNYA) ---
-TOKEN = os.environ.get("TOKEN", "").strip().replace('"', '').replace("'", "")
-bot = telebot.TeleBot(TOKEN, threaded=False) # Matikan threading bawaan agar lebih stabil di Free Tier
-
-# --- 3. HANDLER PERINTAH (TESTING) ---
-@bot.message_handler(commands=['start'])
-def handle_start(m):
-    print(f"DEBUG: /start diterima dari {m.chat.id}") # Muncul di Log Koyeb
-    bot.reply_to(m, "✅ **Bot Menjawab!** Kirimkan link video sekarang.")
-
-@bot.message_handler(commands=['help'])
-def handle_help(m):
-    bot.reply_to(m, "Kirimkan saja link TikTok/YouTube langsung ke sini.")
-
-@bot.message_handler(func=lambda m: m.text and "http" in m.text)
-def handle_links(m):
-    print(f"DEBUG: Link terdeteksi: {m.text}")
-    bot.reply_to(m, "⏳ Sedang memproses link... (yt-dlp)")
-    # Masukkan logika yt-dlp Anda di bawah sini
-
-# --- 4. POLLING DENGAN RECOVERY (ANTI-DIAM) ---
-def start_bot():
-    print("🚀 Mesin Bot Dinyalakan...")
+# --- 2. FITUR RESET OTOMATIS (MEMBERSIHKAN FILE SETIAP 1 MENIT) ---
+def auto_reset():
     while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            print(f"⚠️ Koneksi Terputus, Reconnecting: {e}")
-            time.sleep(5)
+        time.sleep(60) # Cek setiap 1 menit sesuai instruksi Anda
+        for f in os.listdir("."):
+            if f.endswith(".mp4") or f.endswith(".part"):
+                try: os.remove(f); print(f"🗑️ Reset: {f} dihapus.")
+                except: pass
 
-start_bot()
+threading.Thread(target=auto_reset, daemon=True).start()
+
+# --- 3. BOT CORE ---
+bot = telebot.TeleBot(os.environ.get("TOKEN", "").strip())
+
+@bot.message_handler(func=lambda m: "http" in m.text)
+def dl(m):
+    file = f"v_{int(time.time())}.mp4"
+    bot.reply_to(m, "⏳ **Proses...**")
+    try:
+        # Mode Super Cepat
+        subprocess.run(['yt-dlp', '-f', 'b[ext=mp4]', '-o', file, m.text], check=True, timeout=120)
+        with open(file, 'rb') as v:
+            bot.send_video(m.chat.id, v)
+        if os.path.exists(file): os.remove(file) # Hapus langsung setelah kirim
+    except:
+        bot.reply_to(m, "❌ Gagal/Video Terlalu Besar")
+
+print("✅ Bot Aktif & Fitur Reset ON"); bot.infinity_polling()
+        
