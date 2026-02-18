@@ -1,20 +1,21 @@
-FROM ubuntu:latest
+FROM python:3.10-slim
 
-# 1. Install dependencies
-RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/* [cite: 2025-12-27]
+# 1. Install yt-dlp, ffmpeg, dan library bot telegram
+RUN apt-get update && apt-get install -y ffmpeg && \
+    pip install --no-cache-dir yt-dlp pyTelegramBotAPI
 
-# 2. Setup environment
-WORKDIR /app [cite: 2025-12-27]
+WORKDIR /app
 
-# 3. Download & Install V2Ray
-RUN curl -L -o v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip \
-    && unzip v2ray.zip \
-    && chmod +x v2ray \
-    && rm v2ray.zip [cite: 2025-12-27]
+# 2. SC Bot Telegram Sederhana (Download & Kirim Video)
+RUN echo 'import telebot, os; \
+bot = telebot.TeleBot("TOKEN_BOT_ANDA"); \
+@bot.message_handler(func=lambda m: True) \
+def dl(m): \
+    url = m.text; \
+    bot.reply_to(m, "Sabar, lagi download..."); \
+    os.system(f"yt-dlp -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best\" --no-cookies -o vid.mp4 {url}"); \
+    with open("vid.mp4", "rb") as v: bot.send_video(m.chat.id, v); \
+    os.remove("vid.mp4"); \
+bot.infinity_polling()' > bot.py
 
-# 4. Generate Config Otomatis
-RUN echo '{"inbounds":[{"port":8080,"protocol":"vmess","settings":{"clients":[{"id":"b8313620-1511-4471-a244-6a83669680df"}]},"streamSettings":{"network":"ws","wsSettings":{"path":"/nganjuk-speed"}}}],"outbounds":[{"protocol":"freedom"}]}' > /app/config.json [cite: 2025-12-27]
-
-# 5. Execution
-EXPOSE 8080 [cite: 2025-12-27]
-CMD ["/app/v2ray", "run", "-c", "/app/config.json"] [cite: 2025-12-27]
+CMD ["python", "bot.py"]
