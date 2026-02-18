@@ -4,75 +4,57 @@ import time
 import threading
 import subprocess
 
-# --- PENGATURAN TOKEN ---
-# Masukkan token Anda di antara tanda kutip di bawah ini
-# Contoh: TOKEN = "1234567890:ABCdefghIJKLmnoPQR"
-TOKEN = "MASUKKAN_TOKEN_DISINI" 
+# --- KUNCI UTAMA: PENGECEKAN SEDERHANA & BERSIH ---
+# Ambil dari Environment Variable 'TOKEN' di Koyeb
+# .strip() akan menghapus spasi atau enter yang tidak sengaja terbawa
+TOKEN = os.getenv("TOKEN", "").strip()
 
-# Jika ingin tetap pakai Environment Variable Koyeb, aktifkan baris di bawah ini:
-# TOKEN = os.getenv("TOKEN", TOKEN)
+# Validasi langsung: Jika kosong atau tidak ada titik dua, matikan sistem.
+if not TOKEN or ":" not in TOKEN:
+    print("❌ ERROR: TOKEN KOSONG ATAU FORMAT SALAH!")
+    print("Pastikan di Koyeb sudah ada Env Var: TOKEN")
+    os._exit(1) # Paksa keluar agar Koyeb memberikan log yang jelas
 
-try:
-    bot = telebot.TeleBot(TOKEN)
-    print(f"LOG: Mencoba koneksi...")
-    # Langsung tes koneksi
-    bot_user = bot.get_me()
-    print(f"✅ BERHASIL: Bot @{bot_user.username} aktif!")
-except Exception as e:
-    print(f"❌ ERROR: Token tidak valid atau jaringan bermasalah: {e}")
-    # Berhenti agar tidak loop restart di Koyeb
-    exit(1)
+# Langsung buat objek bot tanpa try-except yang ribet di awal
+# Ini memastikan jika token salah, errornya jelas di log (Invalid Token)
+bot = telebot.TeleBot(TOKEN)
+print(f"✅ LOG: Mencoba menjalankan Bot...")
 
-# --- SISTEM PEMBERSIHAN (RESET MEMORY) ---
-def auto_delete_files():
-    """Menghapus file video setiap 1 menit agar storage tidak penuh"""
+# --- RESET MEMORY (HAPUS FILE TIAP 1 MENIT) ---
+def auto_clean():
     while True:
         time.sleep(60)
-        folder = "."
-        for file in os.listdir(folder):
-            if file.startswith("vid_") and file.endswith(".mp4"):
+        for f in os.listdir("."):
+            if f.startswith("vid_") and f.endswith(".mp4"):
                 try:
-                    os.remove(os.path.join(folder, file))
-                    print(f"🗑️ Cleaned: {file}")
+                    os.remove(f)
                 except:
                     pass
 
-# Jalankan cleaner di latar belakang
-threading.Thread(target=auto_delete_files, daemon=True).start()
+threading.Thread(target=auto_clean, daemon=True).start()
 
 # --- HANDLER DOWNLOAD ---
-@bot.message_handler(func=lambda m: m.text and m.text.startswith("http"))
-def download_video(m):
-    status = bot.reply_to(m, "⏳ Sedang memproses... mohon tunggu.")
-    
-    # Nama file unik berdasarkan ID Chat dan waktu
-    file_output = f"vid_{m.chat.id}_{int(time.time())}.mp4"
+@bot.message_handler(func=lambda m: m.text and "http" in m.text)
+def handle_download(m):
+    # Nama file unik agar tidak bentrok antar user
+    filename = f"vid_{m.chat.id}_{int(time.time())}.mp4"
+    bot.reply_to(m, "⏳ Sedang diproses...")
     
     try:
-        # Perintah download (yt-dlp)
-        # --no-check-certificate digunakan agar lebih lancar di server
-        cmd = [
-            'yt-dlp',
-            '-f', 'mp4',
-            '--no-check-certificate',
-            '-o', file_output,
-            m.text
-        ]
+        # Perintah yt-dlp paling dasar & stabil
+        # --no-playlist: jangan download satu album
+        # -f mp4: pastikan format mp4 agar bisa diputar di HP
+        subprocess.run(['yt-dlp', '-f', 'best[ext=mp4]', '--no-playlist', '-o', filename, m.text], check=True)
         
-        # Proses download
-        subprocess.run(cmd, check=True, timeout=180) # Timeout 3 menit
-        
-        if os.path.exists(file_output):
-            with open(file_output, "rb") as video:
-                bot.send_video(m.chat.id, video, caption="✅ Video berhasil dikirim!")
-            # Hapus segera setelah berhasil kirim
-            os.remove(file_output)
-            bot.delete_message(m.chat.id, status.message_id)
+        if os.path.exists(filename):
+            with open(filename, "rb") as v:
+                bot.send_video(m.chat.id, v, caption="✅ Berhasil!")
+            os.remove(filename) # Langsung hapus setelah terkirim
         else:
-            bot.edit_message_text("❌ Gagal: Video tidak ditemukan setelah download.", m.chat.id, status.message_id)
-            
+            bot.send_message(m.chat.id, "❌ Video gagal diproses.")
     except Exception as e:
-        bot.edit_message_text(f"⚠️ Terjadi kesalahan: {str(e)}", m.chat.id, status.message_id)
+        bot.send_message(m.chat.id, f"⚠️ Masalah: {str(e)}")
 
-print("🚀 Bot sedang berjalan (Infinity Polling)...")
-bot.infinity_polling(timeout=10, long_polling_timeout=5)
+# Jalankan Bot
+print("🚀 BOT AKTIF!")
+bot.infinity_polling()
