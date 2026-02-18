@@ -3,48 +3,48 @@ import os
 import time
 import threading
 
-# Pastikan Nama Variabel di Koyeb adalah TOKEN
-TOKEN = os.getenv("TOKEN")
-if not TOKEN:
-    print("ERROR: Variabel TOKEN tidak ditemukan di Koyeb!")
-    exit(1)
-
+# GANTI bagian di bawah ini dengan token asli Anda yang tadi
+TOKEN = "MASUKKAN_TOKEN_ANDA_DI_SINI" 
 bot = telebot.TeleBot(TOKEN)
 
-# Reset Memori: Hapus file video setiap 1 menit
+# RESET MEMORY: Hapus file video setiap 1 menit secara otomatis
 def auto_clean():
     while True:
         time.sleep(60)
         for f in os.listdir("."):
+            # Target file video agar penyimpanan tidak penuh
             if f.endswith((".mp4", ".webm", ".mkv")):
                 try:
                     os.remove(f)
-                    print(f"Pembersihan otomatis: {f} dihapus")
-                except Exception as e:
-                    print(f"Gagal hapus {f}: {e}")
+                    print(f"Auto-clean: {f} berhasil dihapus dari memori.")
+                except:
+                    pass
 
+# Jalankan cleaner di latar belakang
 threading.Thread(target=auto_clean, daemon=True).start()
 
 @bot.message_handler(func=lambda m: True)
-def dl(m):
+def handle_download(m):
     if not m.text.startswith("http"):
         return
-    
-    bot.reply_to(m, "Sabar, lagi download...")
-    try:
-        # Nama file unik
-        out = f"video_{m.chat.id}.mp4"
-        # Download pakai yt-dlp
-        status = os.system(f'yt-dlp -f "best" --no-cookies -o "{out}" "{m.text}"')
         
-        if status == 0 and os.path.exists(out):
-            with open(out, "rb") as v:
-                bot.send_video(m.chat.id, v)
-            os.remove(out)
+    bot.reply_to(m, "Sabar ya, video sedang diproses...")
+    
+    # Nama file unik berdasarkan ID chat
+    file_output = f"vid_{m.chat.id}.mp4"
+    
+    try:
+        # Perintah download yang paling stabil
+        os.system(f'yt-dlp -f "best" --no-cookies -o "{file_output}" "{m.text}"')
+        
+        if os.path.exists(file_output):
+            with open(file_output, "rb") as video:
+                bot.send_video(m.chat.id, video)
+            os.remove(file_output) # Hapus setelah dikirim
         else:
-            bot.reply_to(m, "Gagal download. Link tidak valid atau server sibuk.")
+            bot.reply_to(m, "Gagal ambil video. Link salah atau server lagi sibuk.")
     except Exception as e:
-        bot.reply_to(m, f"Error: {e}")
+        bot.reply_to(m, f"Error sistem: {e}")
 
-print("Bot Jalan...")
+print("BOT AKTIF SEKARANG!")
 bot.infinity_polling()
