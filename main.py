@@ -1,7 +1,7 @@
-import telebot, os, threading, subprocess, time, re
+import telebot, os, threading, subprocess, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# --- 1. KOYEB HEALTH CHECK ---
+# --- 1. HEALTH CHECK (SYARAT KOYEB) ---
 def run_health():
     class H(BaseHTTPRequestHandler):
         def do_GET(self): self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
@@ -9,55 +9,58 @@ def run_health():
 
 threading.Thread(target=run_health, daemon=True).start()
 
-# --- 2. FITUR RESET (SETIAP 1 MENIT) ---
+# --- 2. FITUR RESET (AUTO-CLEAN 60 DETIK) ---
 def auto_reset():
     while True:
         time.sleep(60)
         for f in os.listdir("."):
-            if f.endswith((".mp4", ".part", ".ytdl")):
+            if f.endswith((".mp4", ".part", ".ytdl", ".webp", ".jpg")):
                 try: os.remove(f)
                 except: pass
 
 threading.Thread(target=auto_reset, daemon=True).start()
 
-# --- 3. BOT CORE (SMART DETECTION) ---
+# --- 3. BOT CORE (UNIVERSAL DIRECT MODE) ---
 bot = telebot.TeleBot(os.environ.get("TOKEN", "").strip())
-
-# Fungsi untuk mendeteksi ID Video
-def get_video_id(url):
-    # Regex untuk YouTube dan TikTok
-    yt_regex = r"(?:v=|\/)([0-9A-Za-z_-]{11}).*"
-    tt_regex = r"video\/(\d+)"
-    
-    yt_match = re.search(yt_regex, url)
-    if yt_match: return f"YT_{yt_match.group(1)}"
-    
-    tt_match = re.search(tt_regex, url)
-    if tt_match: return f"TT_{tt_match.group(1)}"
-    
-    return "Unknown_ID"
 
 @bot.message_handler(func=lambda m: "http" in m.text)
 def dl(m):
     url = m.text.strip()
-    video_id = get_video_id(url)
+    status = bot.reply_to(m, "⏳ **Sedang memproses semua platform...**")
     
-    # Jika bukan link yang dikenal, bot tetap mencoba tapi dengan peringatan
-    filename = f"dl_{video_id}_{int(time.time())}.mp4"
-    
-    bot.reply_to(m, f"🔍 **Link Terdeteksi!**\n🆔 ID: `{video_id}`\n⏳ **Sedang mengunduh...**", parse_mode="Markdown")
+    # Nama file unik agar tidak bentrok antar pengguna
+    file_id = f"vid_{int(time.time())}"
+    filename = f"{file_id}.mp4"
     
     try:
-        # Perintah yt-dlp yang tetap super cepat
-        subprocess.run(['yt-dlp', '-f', 'best[ext=mp4]/best', '--no-playlist', '-o', filename, url], check=True, timeout=180)
+        # PERINTAH UNIVERSAL TERKUAT:
+        # -f 'b[ext=mp4]/b': Cari MP4 terbaik yang sudah menyatu (Cepat & Universal)
+        # --user-agent: Menyamar jadi browser (Penting untuk IG & FB)
+        # --no-playlist: Biar nggak download seluruh album kalau kirim link playlist
+        cmd = [
+            'yt-dlp', 
+            '-f', 'best[ext=mp4]/best', 
+            '--no-playlist',
+            '--no-check-certificate',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+            '-o', filename, 
+            url
+        ]
         
-        if os.path.exists(filename):
+        # Jalankan proses
+        subprocess.run(cmd, check=True, timeout=180)
+        
+        if os.path.exists(filename) and os.path.getsize(filename) > 0:
             with open(filename, 'rb') as v:
-                bot.send_video(m.chat.id, v, caption=f"✅ Berhasil diunduh!\nID: {video_id}")
+                bot.send_video(m.chat.id, v, caption="✅ **Berhasil Diunduh!**")
             os.remove(filename)
+            bot.delete_message(m.chat.id, status.message_id)
         else:
-            bot.send_message(m.chat.id, "❌ Gagal: File tidak tercipta.")
+            bot.edit_message_text("❌ Gagal: File tidak ditemukan atau kosong.", m.chat.id, status.message_id)
+            
     except Exception as e:
-        bot.send_message(m.chat.id, "❌ **Error:** Link tidak valid atau video terlalu berat.")
+        # Memberikan feedback jika terjadi error teknis
+        print(f"Error: {e}")
+        bot.edit_message_text(f"❌ **Gagal.**\nPastikan link publik dan video tersedia.", m.chat.id, status.message_id)
 
-print("✅ Bot Aktif & Smart Detection ON"); bot.infinity_polling()
+print("✅ Bot Universal Aktif & Auto-Reset ON"); bot.infinity_polling()
