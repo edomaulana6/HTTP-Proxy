@@ -1,29 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>AI Clipper</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Hook Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
 </head>
-<body>
-  <h1>AI Hook Detector</h1>
+<body class="bg-[#0f172a] text-white min-h-screen flex items-center justify-center p-6">
 
-  <input id="input" placeholder="Masukkan hook..." />
-  <button onclick="analyze()">Analyze</button>
+  <div class="max-w-xl w-full bg-[#1e293b] rounded-2xl shadow-2xl p-8 border border-slate-700">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-900 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent mb-2">
+        AI Hook Detector
+      </h1>
+      <p class="text-slate-400">Analisa potensi viral kontenmu dalam hitungan detik.</p>
+    </div>
 
-  <pre id="result"></pre>
+    <div class="space-y-4">
+      <input 
+        id="input" 
+        type="text"
+        placeholder="Masukkan hook video Anda..." 
+        class="w-full bg-[#0f172a] border border-slate-600 rounded-xl px-4 py-4 text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder:text-slate-600"
+      />
+      
+      <button 
+        onclick="analyze()" 
+        id="btn"
+        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex justify-center items-center"
+      >
+        Mulai Analisa
+      </button>
+    </div>
+
+    <div id="resultContainer" class="mt-8 p-6 bg-[#0f172a] rounded-xl border border-slate-700 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-slate-400 font-medium text-sm">SKOR VIRAL:</span>
+        <span id="scoreLabel" class="text-3xl font-black text-emerald-400">0</span>
+      </div>
+      
+      <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden mb-6">
+        <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-emerald-500 h-full transition-all duration-1000" style="width: 0%"></div>
+      </div>
+
+      <div class="bg-slate-800/50 p-4 rounded-lg">
+        <p id="feedback" class="text-slate-300 text-sm leading-relaxed"></p>
+      </div>
+    </div>
+  </div>
 
   <script>
     async function analyze() {
-      const text = document.getElementById("input").value;
+      const input = document.getElementById("input");
+      const text = input.value;
+      const btn = document.getElementById("btn");
+      const resultContainer = document.getElementById("resultContainer");
+      const scoreLabel = document.getElementById("scoreLabel");
+      const progressBar = document.getElementById("progressBar");
+      const feedback = document.getElementById("feedback");
 
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        body: JSON.stringify({ text })
-      });
+      if (!text.trim()) return alert("Tulis hook-nya dulu!");
 
-      const data = await res.json();
-      document.getElementById("result").innerText =
-        "Score: " + data.score + "\\n" + data.feedback;
+      // Loading State
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+
+        const data = await res.json();
+
+        // Tampilkan Hasil
+        resultContainer.classList.remove("hidden");
+        scoreLabel.innerText = data.score + "/100";
+        progressBar.style.width = data.score + "%";
+        feedback.innerText = data.feedback;
+
+      } catch (err) {
+        alert("Gagal terhubung ke API. Pastikan Worker/Function aktif.");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Mulai Analisa";
+      }
     }
   </script>
 </body>
-</html>
+          </html>
+          
