@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Clipper</title>
+</head>
+<body>
+  <h1>AI Hook Detector</h1>
+
+  <input id="input" placeholder="Masukkan hook..." />
+  <button onclick="analyze()">Analyze</button>
+
+  <pre id="result"></pre>
+
+  <script>
+    async function analyze() {
+      const text = document.getElementById("input").value;
+
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: JSON.stringify({ text })
+      });
+
+      const data = await res.json();
+      document.getElementById("result").innerText =
+        "Score: " + data.score + "\\n" + data.feedback;
+    }
+  </script>
+</body>
+</html>
