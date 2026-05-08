@@ -1,0 +1,12 @@
+{
+  "name": "vidsave",
+  "version": "1.0.0",
+  "description": "Video downloader YouTube & TikTok menggunakan Cobalt API",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
